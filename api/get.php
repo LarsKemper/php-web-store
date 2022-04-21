@@ -6,16 +6,19 @@ if(session_status() === PHP_SESSION_NONE){
 use controller\AuthController;
 use controller\UserController;
 use controller\ProductController;
+use controller\OrderController;
 use enum\FilePathEnum;
 
 require_once __DIR__."/../controller/AuthController.php";
 require_once __DIR__."/../controller/UserController.php";
 require_once __DIR__."/../controller/ProductController.php";
+require_once __DIR__."/../controller/OrderController.php";
 require_once __DIR__."/../shared/filePathEnum.php";
 
 $authController = new AuthController();
 $userController = new UserController();
 $productController = new ProductController();
+$orderController = new OrderController();
 
 // REQUESTS
 // @METHOD GET
@@ -23,6 +26,8 @@ $functions = [
     "getProfile",
     "getProducts",
     "getProduct",
+    "getOrders",
+    "getOrder",
 ];
 
 function init_data(string $functionRef, $param = false) {
@@ -69,6 +74,26 @@ function getProduct(string $product_id) {
     global $productController;
     try {
         return $productController->getProduct($product_id);
+    } catch (ErrorException $e) {
+        print_r($e);
+    }
+}
+
+// @return array OR bool
+function getOrder(string $order_id) {
+    global $orderController;
+    try {
+        return $orderController->getOrder($order_id);
+    } catch (ErrorException $e) {
+        print_r($e);
+    }
+}
+
+// @return array OR bool
+function getOrders(string $user_id) {
+    global $orderController;
+    try {
+        return $orderController->getOrders($user_id);
     } catch (ErrorException $e) {
         print_r($e);
     }

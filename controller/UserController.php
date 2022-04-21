@@ -3,10 +3,12 @@
 namespace controller;
 
 use enum\FilePathEnum;
+use enum\RegexEnum;
 use controller\AuthController;
 use config\Config;
 
 require_once __DIR__."/../shared/filePathEnum.php";
+require_once __DIR__."/../shared/regexEnum.php";
 require_once __DIR__."/AuthController.php";
 require_once __DIR__."/../inc/config.inc.php";
 
@@ -34,21 +36,21 @@ class UserController implements UserInterface {
 
     public function viewSettings(): void
     {   
-        $path = strlen($_SESSION["user_id"]) > 0 ? $this->settingsPath : $this->authController->loginPath;
+        $path = strlen($_SESSION["user_id"]) > 0 ? $this->settingsPath : $this->authController->get_loginPath();
         header("location: $path");
     }
 
     public function viewCart(): void
     {
-        $path = strlen($_SESSION["user_id"]) > 0 ? $this->cartPath : $this->authController->loginPath;
+        $path = strlen($_SESSION["user_id"]) > 0 ? $this->cartPath : $this->authController->get_loginPath();
         header("location: $path");
     }
 
     public function updateUser(array $post): array 
     {
-        $firstName = trim($post["firstName"]);
-        $lastName = trim($post["lastName"]);
-        $email = trim($post["email"]);
+        $firstName = htmlspecialchars(trim($post["firstName"]));
+        $lastName = htmlspecialchars(trim($post["lastName"]));
+        $email = htmlspecialchars(trim($post["email"]));
         $user_id = $post["user_id"];
 
         if(empty($user_id)) {
@@ -56,6 +58,9 @@ class UserController implements UserInterface {
         }
         if(empty($firstName) || empty($lastName) || empty($email)) {
             return $this->config->response(false, "Please fill in all required information!");;
+        }
+        if(!preg_match(RegexEnum::NAME, $firstName) || !preg_match(RegexEnum::NAME, $lastName) || !preg_match(RegexEnum::EMAIL, $email)) {
+            return $this->config->response(false, "Please enter valid information!");
         }
         
         $req = $this->config->getPdo()->prepare("SELECT * FROM users WHERE id = :userId");
@@ -74,15 +79,15 @@ class UserController implements UserInterface {
         $user["email"] = $email;
         $this->authController->setSession($user);
 
-        return ["state" => true, "message" => "Successfully updated!"];
+        return $this->config->response(true, "Successfully updated!");
     }
 
     public function updateProfile(array $post): array
     {
-        $street = trim($post["street"]);
-        $city = trim($post["city"]);
-        $postcode = trim($post["postcode"]);
-        $country = trim($post["country"]);
+        $street = htmlspecialchars(trim($post["street"]));
+        $city = htmlspecialchars(trim($post["city"]));
+        $postcode = htmlspecialchars(trim($post["postcode"]));
+        $country = htmlspecialchars(trim($post["country"]));
         $user_id = $post["user_id"];
 
         if(empty($user_id)){
@@ -90,6 +95,9 @@ class UserController implements UserInterface {
         }
         if(empty($street) || empty($city) || empty($postcode) || empty($country)){
             $this->config->response(false, "Please fill in all information!");;
+        }
+        if(!preg_match(RegexEnum::STREET, $street) || !preg_match(RegexEnum::CITY, $city) || !preg_match(RegexEnum::POSTCODE, $postcode)) {
+            return $this->config->response(false, "Please enter valid information!");
         }
 
         $req = $this->config->getPdo()->prepare("SELECT * FROM profiles WHERE user_id = :userId");
@@ -112,7 +120,7 @@ class UserController implements UserInterface {
             "user_id" => $user_id,
         ]);
 
-        return ["state" => true, "message" => "Successfully updated!"];
+        return $this->config->response(true, "Successfully updated!");
     }
 
     public function getProfile(string $user_id)

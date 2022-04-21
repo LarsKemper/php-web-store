@@ -3,9 +3,11 @@
 namespace controller;
 
 use enum\FilePathEnum;
+use enum\RegexEnum;
 use config\Config;
 
 require_once __DIR__."/../shared/filePathEnum.php";
+require_once __DIR__."/../shared/regexEnum.php";
 require_once __DIR__."/../inc/config.inc.php";
 
 interface AuthInterface {
@@ -14,12 +16,14 @@ interface AuthInterface {
     public function logout(): void;
     public function login(array $post): array;
     public function register(array $post): array;
+    public function deleteUser(array $post): array;
     public function isLoggedIn(): bool;
     public function setSession(array $user): void;
+    public function get_loginPath(): String;
 }
 
 class AuthController implements AuthInterface {
-    public $loginPath;
+    private $loginPath;
     private $registerPath;
     private $config;
 
@@ -40,18 +44,24 @@ class AuthController implements AuthInterface {
         header("location: $this->registerPath");   
     }
 
-    public function logout(): void
+    public function logout($res = ["state" => true, "message" => "Successfully logged out!"]): void
     {
         session_destroy();
         session_unset();
-        header("location: $this->loginPath");
+        header("location: $this->loginPath?state=$res[state]&message=$res[message]");
     }
 
     public function login(array $post): array
     {
-        $res = ["state" => true, "message" => "Successful login"];
-        $email = $post["email"];
-        $password = $post["password"];
+        $email = trim($post["email"]);
+        $password = trim($post["password"]);
+
+        if(empty($email) || empty($password)) {
+            return $this->config->response(false, "Please fill all information!");
+        }
+        if(!preg_match(RegexEnum::EMAIL, $email)) {
+            return $this->config->response(false, "Please enter a valid email");
+        }
 
         $req = $this->config->getPdo()->prepare("SELECT * FROM users WHERE email = :email");
         $result = $req->execute(array("email" => $email));
@@ -63,55 +73,80 @@ class AuthController implements AuthInterface {
             $_SESSION["firstName"] = $user["firstName"];
             header("location: ../../index.php");
         } else {
-            $res = ["state" => false, "message" => "Email or password are invalid"];
+            return $this->config->response(false, "Email or password invalid!");
         }
 
-        return $res;
+        return $this->config->response(true, "Successful login");
     }
 
     public function register(array $post): array
     {
-        $res = ["state" => true, "message" => "Successful registerd. Please login"];
-        $firstName = trim($post["firstName"]);
-        $lastName = trim($post["lastName"]);
-        $email = trim($post["email"]);
-        $password = $post["password"];
-        $password2 = $post["password2"];
+        $firstName = htmlspecialchars(trim($post["firstName"]));
+        $lastName = htmlspecialchars(trim($post["lastName"]));
+        $email = htmlspecialchars(trim($post["email"]));
+        $password = trim($post["password"]);
+        $password2 = trim($post["password2"]);
 
         if(empty($firstName) || empty($lastName) || empty($email)) {
-            $res = ["state" => false, "message" => "Please enter all informations"];
+            return $this->config->response(false, "Please enter all information!");
         }
-        if(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $res = ["state" => false, "message" => "Please enter a valid email"];
+        if(!preg_match(RegexEnum::NAME, $firstName) || !preg_match(RegexEnum::NAME, $lastName) || !preg_match(RegexEnum::EMAIL, $email)) {
+            return $this->config->response(false, "Please enter a valid information!");
         }
-        if(strlen($password) === 0) {
-            $res = ["state" => false, "message" => "Please enter a valid password"];
+        if(strlen($password) === 0 || !preg_match(RegexEnum::PASSWORD, $password)) {
+            return $this->config->response(false, "Please enter a valid password! Password must contain: 1 number, 1 uppercase letter, 1 lowercase letter, 1 non-alpha numeric number, min 8 characters.");
         }
         if($password !== $password2){
-            $res = ["state" => false, "message" => "Passwords must match"];
+            return $this->config->response(false, "Password must match!");
         }
 
-        if($res["state"]){
-            $req = $this->config->getPdo()->prepare("SELECT * FROM users WHERE email = :email");
-            $result = $req->execute(array("email" => $email));
-            $user = $req->fetch();
+        $req = $this->config->getPdo()->prepare("SELECT * FROM users WHERE email = :email");
+        $result = $req->execute(array("email" => $email));
+        $user = $req->fetch();
 
-            if($user !== false) {
-                $res = ["state" => false, "message" => "User already exists"];
-            }
+        if($user !== false) {
+            return $this->config->response(false, "User already exists!");
         }
 
-        if($res["state"]){
-            $hash = password_hash($password, PASSWORD_DEFAULT);
-            $req = $this->config->getPdo()->prepare("INSERT INTO users (firstName, lastName, email, password) VALUES (:firstName, :lastName, :email, :password)");
-            $result = $req->execute(array("firstName" => $firstName, "lastName" => $lastName, "email" => $email, "password" => $hash));
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $req = $this->config->getPdo()->prepare("INSERT INTO users (firstName, lastName, email, password) VALUES (:firstName, :lastName, :email, :password)");
+        $result = $req->execute(array("firstName" => $firstName, "lastName" => $lastName, "email" => $email, "password" => $hash));
 
-            if(!$result) {
-                $res = ["state" => false, "message" => "Something gone wrong"];
-            }
+        if(!$result) {
+            return $this->config->response(false, "Something gone wrong!");
+        }
+        
+        return $this->config->response(true, "Successful registerd. Please login");
+    }
+
+    public function deleteUser(array $post): array
+    {
+        $user_id = $post["user_id"];
+
+        if(!$user_id) {
+            return $this->config->response(false, "User not found!");
         }
 
-        return $res;
+        $req = $this->config->getPdo()->prepare("DELETE FROM users WHERE id = :userId");
+        $res = $req->execute(array("userId" => $user_id));
+
+        if(!$res) {
+            return $this->config->response(false, "Failed to delete User!");
+        }
+
+        $req = $this->config->getPdo()->prepare("DELETE FROM profiles WHERE user_id = :userId");
+        $res = $req->execute(array("userId" => $user_id));
+
+        if(!$res) {
+            return $this->config->response(false, "Failed to delete Profile!");
+        }
+
+        $this->logout([
+            "state" => true,
+            "message" => "Sucessfully delete Account!"
+        ]);
+ 
+        return $this->config->response(false, "Failed to redirect!");
     }
 
     public function isLoggedIn(): bool
@@ -129,6 +164,10 @@ class AuthController implements AuthInterface {
             unset($_SESSION["profle"]);
             $_SESSION["profile"] = $profile;
         }
+    }
+
+    public function get_loginPath(): String {
+        return $this->loginPath;
     }
 
 }
