@@ -15,7 +15,7 @@
 </head>
 
 <body class="bg-gray-100">
-    <?php include __DIR__."/components/private-nav.php"; ?>
+    <?php require __DIR__."/components/private-nav.php"; ?>
     <div class="my-8 container mx-auto">
         <div class="inputs w-full max-w-4xl p-6 mx-auto">
             <div class="mt-5 mb-2">
@@ -29,22 +29,20 @@
                 </div>
                 <div class="flex flex-wrap -m-4">
                     <?php 
-                        if(isset($_SESSION["products"])){
-                            if($_SESSION["products"]){
-                                foreach($_SESSION["products"] as $product){   
-                                    include_with_prop(__DIR__."/components/product/product.php", array(
-                                        "product_id" => $product["id"],
-                                        "product_name" => $product["name"],
-                                        "price" => $product["price"],
-                                        "img_path" => $product["img_path"],
-                                    ));
-                                }
-                            } else {
-                                echo "<h1 class='text-red-700 font-medium'>Failed to load Products!</h1>";
-                            }
-                        } else {
-                            echo "<h1 class='text-red-700 font-medium'>Failed to load Products!</h1>";
+                    if(isset($_SESSION["products"]) || !$_SESSION["products"]) {
+                        foreach($_SESSION["products"] as $product){
+                            include_with_prop(
+                                __DIR__."/components/product/product.php", array(
+                                    "product_id" => $product["id"],
+                                    "product_name" => $product["name"],
+                                    "price" => $product["price"],
+                                    "img_path" => $product["img_path"],
+                                )
+                            );
                         }
+                    } else {
+                        echo "<h1 class='text-red-700 font-medium'>Failed to load Products!</h1>";
+                    }
                     ?>
                 </div>
             </div>

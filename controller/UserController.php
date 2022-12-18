@@ -2,25 +2,26 @@
 
 namespace controller;
 
+use config\Config;
 use enum\FilePathEnum;
 use enum\RegexEnum;
-use controller\AuthController;
-use config\Config;
 
-require_once __DIR__."/../shared/filePathEnum.php";
-require_once __DIR__."/../shared/regexEnum.php";
+require_once __DIR__ . "/../shared/FilePathEnum.php";
+require_once __DIR__ . "/../shared/RegexEnum.php";
 require_once __DIR__."/AuthController.php";
 require_once __DIR__."/../inc/config.inc.php";
 
-interface UserInterface {
+interface UserInterface
+{
     public function viewSettings(): void;
     public function viewCart(): void;
     public function updateUser(array $post): array;
     public function updateProfile(array $post): array;
-    public function getProfile(string $user_id); // @return array OR bool
+    public function getProfile(string $user_id);
 }
 
-class UserController implements UserInterface {
+class UserController implements UserInterface
+{
     private $authController;
     private $settingsPath;
     private $cartPath;
@@ -56,23 +57,25 @@ class UserController implements UserInterface {
         if(empty($user_id)) {
             return $this->config->response(false, "User not found!");
         }
+
         if(empty($firstName) || empty($lastName) || empty($email)) {
             return $this->config->response(false, "Please fill in all required information!");;
         }
+
         if(!preg_match(RegexEnum::NAME, $firstName) || !preg_match(RegexEnum::NAME, $lastName) || !preg_match(RegexEnum::EMAIL, $email)) {
             return $this->config->response(false, "Please enter valid information!");
         }
         
         $req = $this->config->getPdo()->prepare("SELECT * FROM users WHERE id = :userId");
-        $res = $req->execute(array("userId" => $user_id));
+        $req->execute(array("userId" => $user_id));
         $user = $req->fetch();
 
         if(!$user) {
-            $this->config->response(false, "User not found!");;
+            return $this->config->response(false, "User not found!");
         }
 
         $req = $this->config->getPdo()->prepare("UPDATE users SET firstName = :firstName, lastName = :lastName, email = :email WHERE id = :userId");
-        $res = $req->execute(array("userId" => $user_id, "firstName" => $firstName, "lastName" => $lastName, "email" => $email));
+        $req->execute(array("userId" => $user_id, "firstName" => $firstName, "lastName" => $lastName, "email" => $email));
 
         $user["firstName"] = $firstName;
         $user["lastName"] = $lastName;
@@ -90,35 +93,38 @@ class UserController implements UserInterface {
         $country = htmlspecialchars(trim($post["country"]));
         $user_id = $post["user_id"];
 
-        if(empty($user_id)){
-            $this->config->response(false, "User not found!");;
+        if(empty($user_id)) {
+            return $this->config->response(false, "User not found!");
         }
-        if(empty($street) || empty($city) || empty($postcode) || empty($country)){
-            $this->config->response(false, "Please fill in all information!");;
+
+        if(empty($street) || empty($city) || empty($postcode) || empty($country)) {
+            return $this->config->response(false, "Please fill in all information!");
         }
+
         if(!preg_match(RegexEnum::STREET, $street) || !preg_match(RegexEnum::CITY, $city) || !preg_match(RegexEnum::POSTCODE, $postcode)) {
             return $this->config->response(false, "Please enter valid information!");
         }
 
         $req = $this->config->getPdo()->prepare("SELECT * FROM profiles WHERE user_id = :userId");
-        $res = $req->execute(array("userId" => $user_id));
+        $req->execute(array("userId" => $user_id));
         $profile = $req->fetch();
 
         if(!$profile) {
             $req = $this->config->getPdo()->prepare("INSERT INTO profiles (user_id, street, city, postcode, country) VALUES(:userId, :street, :city, :postcode, :country)");
-            $res = $req->execute(array("userId" => $user_id, "street" => $street, "city" => $city, "postcode" => $postcode, "country" => $country));
         } else {
             $req = $this->config->getPdo()->prepare("UPDATE profiles SET street = :street, city = :city, postcode = :postcode, country = :country WHERE user_id = :userId");
-            $res = $req->execute(array("userId" => $user_id, "street" => $street, "city" => $city, "postcode" => $postcode, "country" => $country));
         }
+        $req->execute(array("userId" => $user_id, "street" => $street, "city" => $city, "postcode" => $postcode, "country" => $country));
 
-        $this->authController->setSession(false, [
+        $this->authController->setSession(
+            false, [
             "street" => $street,
             "city" => $city,
             "postcode" => $postcode,
             "country" => $country,
             "user_id" => $user_id,
-        ]);
+            ]
+        );
 
         return $this->config->response(true, "Successfully updated!");
     }
@@ -130,7 +136,7 @@ class UserController implements UserInterface {
         }
 
         $req = $this->config->getPdo()->prepare("SELECT * FROM profiles WHERE user_id = :userId");
-        $res = $req->execute(array("userId" => $user_id));
+        $req->execute(array("userId" => $user_id));
         $profile = $req->fetch();
 
         if(!$profile) {
@@ -139,5 +145,4 @@ class UserController implements UserInterface {
 
         return $profile;
     }
-    
 }

@@ -1,100 +1,81 @@
 <?php
-if(session_status() === PHP_SESSION_NONE){
+if(session_status() === PHP_SESSION_NONE) {
         session_start();
 }
 
 use controller\AuthController;
-use controller\UserController;
-use controller\ProductController;
 use controller\OrderController;
+use controller\ProductController;
+use controller\UserController;
 use enum\FilePathEnum;
+use enum\GetRoutesEnum;
 
 require_once __DIR__."/../controller/AuthController.php";
 require_once __DIR__."/../controller/UserController.php";
 require_once __DIR__."/../controller/ProductController.php";
 require_once __DIR__."/../controller/OrderController.php";
-require_once __DIR__."/../shared/filePathEnum.php";
+require_once __DIR__ . "/../shared/FilePathEnum.php";
+require_once __DIR__ . "/../shared/GetRoutesEnum.php";
 
 $authController = new AuthController();
 $userController = new UserController();
 $productController = new ProductController();
 $orderController = new OrderController();
 
-// REQUESTS
-// @METHOD GET
-$functions = [
-    "getProfile",
-    "getProducts",
-    "getProduct",
-    "getOrders",
-    "getOrder",
-];
+function init_data(string $functionRef, $param = false)
+{
+    $functions = GetRoutesEnum::getRoutes();
 
-function init_data(string $functionRef, $param = false) {
-    $exists = false;
-    global $functions;
     foreach($functions as $function) {
         if($functionRef === $function) {
-            $exists = true;
-            return $function($param);
+            $res = null;
+
+            try {
+                $res = $function($param);
+            } catch (PDOException|Exception|ErrorException $e) {
+                print_r($e);
+            }
+
+            return $res;
         }
     }
-    if(!$exists) header("location: ".FilePathEnum::NOT_FOUND);
+
+    header("location: ".FilePathEnum::NOT_FOUND);
+    return null;
 }
 
-function include_with_prop($fileName, $prop) {
+function include_with_prop($fileName, $prop)
+{
     extract($prop);
-    include($fileName);
+    include $fileName;
 }
 
-//
-
-// @return array OR bool
-function getProfile(string $user_id) {
+function getProfile(string $user_id)
+{
     global $userController;
-    try {
-        return $userController->getProfile($user_id);
-    } catch (ErrorException $e){
-        print_r($e);
-    }
+    return $userController->getProfile($user_id);
 }
 
-// @retrun array OR bool
-function getProducts() {
+function getProducts()
+{
     global $productController;
-    try {
-        return $productController->getProducts();
-    } catch (ErrorException $e) {
-        print_r($e);
-    }
+    return $productController->getProducts();
 }
 
-// @return array OR bool
-function getProduct(string $product_id) {
+function getProduct(string $product_id)
+{
     global $productController;
-    try {
-        return $productController->getProduct($product_id);
-    } catch (ErrorException $e) {
-        print_r($e);
-    }
+    return $productController->getProduct($product_id);
 }
 
-// @return array OR bool
-function getOrder(string $order_id) {
+function getOrder(string $order_id)
+{
     global $orderController;
-    try {
-        return $orderController->getOrder($order_id);
-    } catch (ErrorException $e) {
-        print_r($e);
-    }
+    return $orderController->getOrder($order_id);
 }
 
-// @return array OR bool
-function getOrders(string $user_id) {
+function getOrders(string $user_id)
+{
     global $orderController;
-    try {
-        return $orderController->getOrders($user_id);
-    } catch (ErrorException $e) {
-        print_r($e);
-    }
+    return $orderController->getOrders($user_id);
 }

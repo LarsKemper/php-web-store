@@ -1,167 +1,141 @@
 <?php
-if(session_status() === PHP_SESSION_NONE){
+if (session_status() === PHP_SESSION_NONE){
         session_start();
 }
 
 use controller\AuthController;
-use controller\UserController;
-use controller\ProductController;
 use controller\OrderController;
+use controller\ProductController;
+use controller\UserController;
 use enum\FilePathEnum;
+use enum\PostRoutesEnum;
 
 require_once __DIR__."/../controller/AuthController.php";
 require_once __DIR__."/../controller/UserController.php";
 require_once __DIR__."/../controller/ProductController.php";
 require_once __DIR__."/../controller/OrderController.php";
-require_once __DIR__."/../shared/filePathEnum.php";
+require_once __DIR__ . "/../shared/FilePathEnum.php";
+require_once __DIR__ . "/../shared/PostRoutesEnum.php";
 
 $authController = new AuthController();
 $userController = new UserController();
 $productController = new ProductController();
 $orderController = new OrderController();
 
-// REQUESTS
-// @METHOD POST
-$functions = [
-    "redirect",
-    "login",
-    "register",
-    "logout",
-    "updateUser",
-    "updateProfile",
-    "updateCart",
-    "deleteFromCart",
-    "createOrder",
-    "deleteUser",
-    "deleteOrder"
-];
-
 if($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("location: ".FilePathEnum::NOT_FOUND);
 } else {
-    match_call($functions);
+    match_call();
 }
 
-function match_call($functions): void {
-    $exists = false;
+function match_call(): void
+{
+    $functions = PostRoutesEnum::getRoutes();
+
     foreach($functions as $function) {
         if(isset($_POST[$function])) {
-            $exists = true;
-            $function($_POST[$function]);
+            try {
+                $function($_POST[$function]);
+            } catch (PDOException|Exception|ErrorException $e) {
+                print_r($e);
+            }
+
+            return;
         }
     }
-    if(!$exists) header("location: ".FilePathEnum::NOT_FOUND);
-};
 
-//
+    header("location: ".FilePathEnum::NOT_FOUND);
+}
 
-function redirect(string $path): void {
+function redirect(string $path): void
+{
     header("location: $path");
 }
 
-function register(): void {
+function register(): void
+{
     global $authController;
-    try {
-        $res = $authController->register($_POST);
-    } catch(ErrorException $e) {
-        print_r($e);
-    }
+    $res = $authController->register($_POST);
     header("location: ".FilePathEnum::REGISTER."?state=$res[state]&message=$res[message]");
 }
 
-function login(): void {
+function login(): void
+{
     global $authController;
-    try {
-        $res = $authController->login($_POST);
-    } catch(ErrorException $e) {
-        print_r($e);
-    }
+    $res = $authController->login($_POST);
+
     if($res["state"]) {
         header("location: ".FilePathEnum::HOME);
-    } else {
-        header("location: ".FilePathEnum::LOGIN."?state=$res[state]&message=$res[message]");
     }
+
+    header("location: ".FilePathEnum::LOGIN."?state=$res[state]&message=$res[message]");
 }
 
-function logout(): void {
+function logout(): void
+{
     global $authController;
-    try {
-        $authController->logout();
-    } catch(ErrorException $e){
-        print_r($e);
-    }
+    $authController->logout();
 }
 
-function updateUser(): void {
+function updateUser(): void
+{
     global $userController;
-    try {
-        $res = $userController->updateUser($_POST);
-    } catch(ErrorException $e) {
-        print_r($e);
-    }
+    $res = $userController->updateUser($_POST);
     header("location: ".FilePathEnum::SETTINGS."?state=$res[state]&message=$res[message]");
 }
 
-function updateProfile(): void {
+function updateProfile(): void
+{
     global $userController;
-    try {
-        $res = $userController->updateProfile($_POST);
-    } catch(ErrorException $e) {
-        print_r($e);
-    }
+    $res = $userController->updateProfile($_POST);
     header("location: ".FilePathEnum::SETTINGS."?state=$res[state]&message=$res[message]");
 }
 
-function updateCart(): void {
+function updateCart(): void
+{
     global $productController;
-    try {
-        $res = $productController->updateCart($_POST);
-        $productController->updateCartCosts($_SESSION["cart"]);
-    } catch(ErrorException $e) {
-        print_r($e);
-    }
+
+    $res = $productController->updateCart($_POST);
+    $productController->updateCartCosts($_SESSION["cart"]);
+
     header("location: ".FilePathEnum::PRODUCT."?product_id=$res[product_id]&state=$res[state]&message=$res[message]");
 }
 
-function deleteFromCart(): void {
+function deleteFromCart(): void
+{
     global $productController;
-    try {
-        $res = $productController->deleteFromCart($_POST);
-        if(isset($_SESSION["cart_consts"])) $productController->updateCartCosts($_SESSION["cart"]);
-    } catch(ErrorException $e) {
-        print_r($e);
+    $res = $productController->deleteFromCart($_POST);
+
+    if(isset($_SESSION["cart_consts"])) {
+        $productController->updateCartCosts($_SESSION["cart"]);
     }
+
     header("location: ".FilePathEnum::CART."?state=$res[state]&message=$res[message]");
 }
 
-function createOrder(): void {
+/**
+ * @throws Exception
+ */
+function createOrder(): void
+{
     global $orderController;
-    try {
-        $res = $orderController->createOrder($_POST);
-    } catch(ErrorException $e) {
-        print_r($e);
-    }
+    $res = $orderController->createOrder($_POST);
     header("location: ".FilePathEnum::CART."?state=$res[state]&message=$res[message]");
 }
 
-function deleteUser(): void {
+function deleteUser(): void
+{
     global $authController;
-    try {
-        $res = $authController->deleteUser($_POST);
-    } catch (ErrorException $e) {
-        print_r($e);
-    }
-    if(!$res) {
+    $res = $authController->deleteUser($_POST);
+
+    if (!$res) {
         header("location: ".FilePathEnum::SETTINGS."?state=$res[state]&message=$res[message]");
     } 
 }
 
-function deleteOrder(): void {
+function deleteOrder(): void
+{
     global $orderController;
-    try {
-        $res = $orderController->deleteOrder($_POST["order_id"]);
-    } catch (ErrorException $e) {
-        print_r($e);
-    }
+    $res = $orderController->deleteOrder($_POST["order_id"]);
     header("location: ".FilePathEnum::SETTINGS."?state=$res[state]&message=$res[message]");
 }
